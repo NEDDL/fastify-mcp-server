@@ -3,11 +3,50 @@
   "author": "Mustafa ONAL",
   "version": "0.1.0",
   "private": true,
-  "description": "A minimal, functional-style MCP server built with Fastify - the fastest Node.js API framework",
+  "description": "🚀 High-performance MCP (Model Context Protocol) server built with Fastify, TypeScript, and functional programming. Production-ready with authentication, metrics, and auto-discovery capabilities for AI agents and LLM applications.",
+  "keywords": [
+    "mcp-server",
+    "fastify",
+    "typescript",
+    "ai-agents",
+    "llm-integration",
+    "model-context-protocol",
+    "nodejs",
+    "api-server",
+    "production-ready",
+    "authentication",
+    "metrics",
+    "kubernetes",
+    "functional-programming",
+    "type-safety",
+    "enterprise",
+    "microservices",
+    "ai-platform",
+    "developer-tools"
+  ],
+  "homepage": "https://github.com/your-username/fastify-mcp-server#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/fastify-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/fastify-mcp-server/issues"
+  },
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=20.10.0"
   },
+  "topics": [
+    "mcp",
+    "fastify",
+    "typescript",
+    "ai",
+    "llm",
+    "server",
+    "api",
+    "production-ready"
+  ],
   "scripts": {
     "dev": "tsx watch src/index.ts | pino-pretty --colorize --translateTime 'HH:MM:ss Z' --ignore pid,hostname",
     "start": "node dist/index.js",
