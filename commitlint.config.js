@@ -7,11 +7,11 @@ module.exports = {
       [
         "feat",
         "fix",
-        "docs", // Company also accepts "doc"
+        "docs",
         "style",
         "refactor",
         "test",
-        "build", // Used for GitOps deployment commits
+        "build",
         "chore",
         "revert",
       ],
