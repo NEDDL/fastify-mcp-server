@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { mcpLogger } from "../utils/logger.js";
 
-export function createSessionManager(mcp: McpServer) {
+export function createSessionManager(mcpFactory: () => McpServer) {
   const sessions = new Map<string, StreamableHTTPServerTransport>();
   const sessionTimestamps = new Map<string, number>();
   let cleanupInterval: NodeJS.Timeout | undefined;
@@ -23,6 +23,7 @@ export function createSessionManager(mcp: McpServer) {
       },
     });
 
+    const mcp = mcpFactory();
     await mcp.connect(transport);
     mcpLogger.debug("Connected transport");
     return transport;

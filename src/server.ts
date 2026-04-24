@@ -32,9 +32,9 @@ export async function buildServer() {
   // Register all REST routes (health, metrics, etc.)
   await registerRoutes(app);
 
-  // Create MCP server + session manager
-  const mcp = createMcpServer();
-  const sessionManager = createSessionManager(mcp);
+  // Create MCP session manager — factory builds a fresh McpServer per session
+  // (SDK requires one Protocol instance per transport)
+  const sessionManager = createSessionManager(createMcpServer);
 
   // Register MCP transport plugin
   await app.register(mcpTransportPlugin, {
