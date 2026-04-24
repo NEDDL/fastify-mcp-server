@@ -1,9 +1,10 @@
 # 🚀 Fastify MCP Server
 
-[![Node.js](https://img.shields.io/badge/Node.js-20.10.0+-green.svg)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6.3-blue.svg)](https://www.typescriptlang.org/)
-[![Fastify](https://img.shields.io/badge/Fastify-5.5.0-orange.svg)](https://fastify.dev/)
-[![MCP](https://img.shields.io/badge/MCP-1.0.0-purple.svg)](https://modelcontextprotocol.io/)
+[![Node.js](https://img.shields.io/badge/Node.js-22+-green.svg)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
+[![Fastify](https://img.shields.io/badge/Fastify-5.8-orange.svg)](https://fastify.dev/)
+[![MCP](https://img.shields.io/badge/MCP-1.29-purple.svg)](https://modelcontextprotocol.io/)
+[![Zod](https://img.shields.io/badge/Zod-4-pink.svg)](https://zod.dev/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **High-performance MCP (Model Context Protocol) server** built with Fastify, TypeScript, and functional programming principles. Production-ready with authentication, metrics, and auto-discovery capabilities.
@@ -70,23 +71,13 @@ Perfect for building:
 | **Architecture** | 🧩 Auto-discovery    | ❌ Manual setup     |
 | **Standards**    | ✅ MCP 1.0 compliant | ❌ Custom protocols |
 
-## ⚡ Performance Metrics
-
-### Benchmark Results
-
-- **Request Latency**: < 1ms average response time
-- **Throughput**: 50,000+ requests/second on modern hardware
-- **Memory Usage**: < 50MB baseline memory footprint
-- **Startup Time**: < 500ms cold start
-- **Bundle Size**: < 2MB production build
-
-### Production Readiness
+## ⚡ Production Readiness
 
 - ✅ **Kubernetes** - Health checks and readiness probes
 - ✅ **Monitoring** - Built-in metrics and logging
 - ✅ **Security** - Bearer token authentication
 - ✅ **Scalability** - Horizontal scaling support
-- ✅ **Reliability** - Session management and cleanup
+- ✅ **Reliability** - Per-session MCP isolation, automatic stale session cleanup
 
 ## 🏗️ Architecture
 
@@ -99,25 +90,20 @@ Perfect for building:
 
 ### Endpoints
 
-- `GET /health` - Kubernetes liveness probe
-- `GET /metrics` - Application metrics endpoint
-- **MCP Transport** - WebSocket/HTTP transport for MCP protocol
+- `GET /health` - Kubernetes liveness probe (no auth)
+- `GET /metrics` - Application metrics (no auth)
+- `POST /mcp` - MCP StreamableHTTP transport (bearer auth required)
 
 ### Session Management
 
-The server includes intelligent session management with automatic cleanup:
+The MCP SDK requires **one `Server`/`Protocol` instance per transport**, so the session manager instantiates a fresh `McpServer` per connection (see `src/mcp/sessions.ts`). Sessions are tracked by ID and reaped after 30 minutes of inactivity.
 
-- **Activity-based timeouts** - Sessions are kept alive as long as they're actively used
-- **Automatic cleanup** - Stale sessions (30 minutes of inactivity) are automatically removed
-- **Periodic maintenance** - Cleanup runs every 5 minutes to prevent memory leaks
-- **Graceful shutdown** - All sessions are properly closed when the server shuts down
+- **Per-session isolation** - Each MCP client gets its own server instance
+- **Activity-based timeouts** - Sessions stay alive while actively used
+- **Automatic cleanup** - Stale sessions (30 min idle) removed every 5 min
+- **Graceful shutdown** - All sessions closed on server stop
 
-Session lifecycle:
-
-1. **Creation** - New session initialized with unique ID
-2. **Activity tracking** - Timestamp updated on every request
-3. **Cleanup** - Sessions inactive for 30+ minutes are automatically removed
-4. **Logging** - Full session lifecycle is logged for debugging
+Session lifecycle: create (new UUID) → reuse on subsequent requests with same `mcp-session-id` header → cleanup when stale.
 
 ## 🔐 Security
 
@@ -157,108 +143,99 @@ Parameterized instruction templates for reusable AI workflows. Great for:
 
 ### Prerequisites
 
-- **Node.js** >= 20.10.0 (recommended: 24.x LTS)
-- **npm** or **yarn** package manager
-- **Git** for version control
+- **Node.js** >= 22 (recommended: 24.x LTS, see `.nvmrc`)
+- **pnpm** (the project ships a `pnpm-lock.yaml`)
+- **Git**
 
-> 💡 **Node Version Manager**: If you have nvm installed, you can use `nvm use 24` to switch to Node.js 24
-
-### One-Command Setup
-
-```bash
-# Clone and setup in one command
-git clone https://github.com/your-username/fastify-mcp-server.git && \
-cd fastify-mcp-server && \
-npm install && \
-npm run build
-```
+> 💡 With nvm: `nvm use` will pick up the version pinned in `.nvmrc` automatically.
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone git@gitlab.tools.outerhr.net:Onal/fastify-mcp-server.git
-cd example-mcp-server
-
-# Install dependencies
-npm install
-
-# Build the project
-npm run build
+git clone https://github.com/your-username/fastify-mcp-server.git
+cd fastify-mcp-server
+pnpm install
+pnpm build
 ```
 
 ### Development
 
 ```bash
-# Start development server with hot reload
-npm run dev
-
-# Run as MCP server (stdio mode)
-npm run mcp
-
-# Start production server
-npm start
+pnpm dev    # HTTP server with hot reload (tsx watch)
+pnpm mcp    # Run as stdio MCP server (for Claude Desktop direct integration)
+pnpm start  # Production server (after pnpm build)
 ```
 
 ### Configuration
-
-Copy the provided `.env.example` file and configure your settings:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your configuration:
-
 ```env
 MCP_SERVER_PORT=9080
 MCP_SERVER_HOST=localhost
-MCP_SERVER_TOKEN=your-secure-bearer-token-here
-NODE_ENV=development
+MCP_SERVER_TOKEN=super-secret-token   # change for non-local use
+LOG_LEVEL=debug
 ```
 
 ## 🔌 MCP Client Integration
 
-### Claude Desktop
+Two integration paths — **stdio** (simplest, no server needed) or **HTTP** (test the production transport, auth, sessions).
 
-Add to your `claude_desktop_config.json`:
+### Claude Desktop — stdio (recommended for local dev)
+
+Build first: `pnpm build`. Then add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
-    "example-server": {
+    "fastify-mcp-local": {
       "command": "node",
-      "args": ["/path/to/example-mcp-server/dist/mcp-stdio.js"],
-      "cwd": "/path/to/example-mcp-server"
+      "args": ["/absolute/path/to/fastify-mcp-server/dist/mcp-stdio.js"]
     }
   }
 }
 ```
 
-> ⚠️ **Important**: For local usage with Claude Desktop, you need to modify `src/utils/logger.ts` to use stderr for MCP compatibility. Uncomment the line:
->
-> ```typescript
-> export const logger = pino(getLoggerConfig(), process.stderr); // To use locally in Claude Desktop
-> ```
->
-> This prevents stdout corruption that can cause MCP communication errors.
+> ℹ️ The logger writes to stderr by default in stdio mode, so no extra config is needed.
 
-### Postman Testing
+### Claude Desktop — HTTP via `mcp-remote` bridge
 
-For local testing and development, you can use Postman's MCP connection feature:
+Claude Desktop only spawns stdio processes locally. To consume the HTTP transport, bridge it with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote):
 
-1. **Open Postman** and create a new request
-2. **Set the URL** to: `http://localhost:9080/mcp`
-3. **Add Authorization**:
-   - Type: `Bearer Token`
-   - Token: Your `MCP_SERVER_TOKEN` from `.env`
-4. **Send MCP requests** to test tools, resources, and prompts
+```json
+{
+  "mcpServers": {
+    "fastify-mcp-local": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://localhost:9080/mcp",
+        "--header",
+        "Authorization: Bearer super-secret-token"
+      ]
+    }
+  }
+}
+```
 
-This allows you to interact with the MCP server directly through HTTP without needing Claude Desktop.
+Run `pnpm dev` first; then quit + reopen Claude Desktop. Logs at `~/Library/Logs/Claude/mcp-server-*.log`.
 
-### HTTP Transport
+> ⚠️ `npx` resolves `node` from PATH. If you have multiple Node versions installed via nvm, ensure your default (`nvm alias default`) is Node ≥ 18, or `mcp-remote` will crash on `undici`.
 
-The server also supports HTTP-based MCP transport on the configured port with bearer token authentication.
+### cURL / Postman
+
+```bash
+curl -X POST http://localhost:9080/mcp \
+  -H "Authorization: Bearer super-secret-token" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
+```
+
+In Postman: `POST http://localhost:9080/mcp`, Auth → Bearer Token = your `MCP_SERVER_TOKEN`.
 
 ## 🛠️ Development
 
@@ -273,13 +250,16 @@ The server will automatically register them on restart.
 ### Scripts
 
 ```bash
-npm run dev          # Development with hot reload
-npm run build        # Build TypeScript to JavaScript
-npm run start        # Start production server
-npm run mcp          # Run as MCP server (stdio)
-npm run lint         # Lint and fix code
-npm run format       # Format code with Prettier
-npm run check        # Type check without building
+pnpm dev           # HTTP server with hot reload (tsx watch)
+pnpm build         # Compile TypeScript → dist/
+pnpm start         # Run compiled server (node dist/index.js)
+pnpm mcp           # Run as stdio MCP server (after build)
+pnpm check         # Type check without emit
+pnpm lint          # ESLint --fix
+pnpm lint:check    # ESLint, no fixes
+pnpm format        # Prettier --write
+pnpm format:check  # Prettier --check
+pnpm clean         # Remove dist/
 ```
 
 ## 📦 Tech Stack
@@ -294,11 +274,10 @@ npm run check        # Type check without building
 
 ### Development Tools
 
-- **ESLint** - Code linting and quality assurance
-- **Prettier** - Code formatting and style consistency
-- **Husky** - Git hooks for code quality
-- **Commitlint** - Conventional commit message validation
-- **tsx** - TypeScript execution and development server
+- **ESLint** - Code linting
+- **Prettier** - Code formatting
+- **tsx** - TypeScript execution and watch mode
+- **pnpm** - Package manager
 
 ### Keywords & Tags
 
@@ -346,7 +325,7 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 ## 📄 License
 
-**Copyright © 2025 Mustafa ONAL**
+**Copyright © 2025–2026 Mustafa ONAL**
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
